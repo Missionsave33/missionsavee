@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ประวัติของคุณ</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
+    body {
+      font-family: 'Sarabun', sans-serif;
+      margin: 0; padding: 20px;
+      background-color: #f0f4ff;
+      color: #222;
+    }
+    h1 {
+      text-align: center;
+      color: #3f51b5;
+    }
+    .tab-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .tab-button {
+      background-color: #3f51b5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .tab-button.active {
+      background-color: #303f9f;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 12px 16px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    thead {
+      background: linear-gradient(90deg, #3f51b5, #5c6bc0);
+      color: white;
+    }
+    tbody tr:nth-child(odd) {
+      background-color: #f9faff;
+    }
+    tbody tr:hover {
+      background-color: #e3e8ff;
+    }
+    .back-btn {
+      background-color: #dcdcdc;
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: inline-block;
+      cursor: pointer;
+    }
+    #refreshBtn {
+      background-color: #3f51b5;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    #chartContainer, #goalChartContainer {
+      max-width: 600px;
+      margin: 30px auto 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+    }
+    #chartContainer h3, #goalChartContainer h3 {
+      text-align: center;
+      color: #3f51b5;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>ข้อมูลประวัติของคุณ</h1>
+
+<div class="tab-buttons">
+  <button class="tab-button active" onclick="switchTab('savingTab', event)">💰 ประวัติการออม</button>
+  <button class="tab-button" onclick="switchTab('interestTab', event)">📈 ประวัติการคำนวณ</button>
+</div>
+
+<div class="tab-content active" id="savingTab">
+  <button id="refreshBtn">🔄 โหลดข้อมูลใหม่</button>
+  <table>
+    <thead>
+      <tr>
+        <th>ประเภท</th>
+        <th>เป้าหมาย</th>
+        <th>ยอดเงินรวม (บาท)</th>
+        <th>จำนวนที่ต้องการเก็บทั้งหมด</th>
+        <th>ยอดที่ควรเก็บต่อวัน</th>
+        <th>ระยะเวลา (วัน)</th>
+        <th>อัพเดทล่าสุด</th>
+      </tr>
+    </thead>
+    <tbody id="historyBody">
+      <tr><td colspan="7" id="noData">กำลังโหลดข้อมูล...</td></tr>
+    </tbody>
+  </table>
+
+  <div id="chartContainer" style="display:none;">
+    <h3>กราฟออมประจำ (ยอดเงินรวมต่อเป้าหมาย)</h3>
+    <canvas id="summaryChart"></canvas>
+  </div>
+
+  <div id="goalChartContainer" style="display:none;">
+    <h3>กราฟออมแบบมีเป้าหมาย (ยอดที่ควรเก็บต่อวัน)</h3>
+    <canvas id="goalChart"></canvas>
+  </div>
+</div>
+
+<div class="tab-content" id="interestTab">
+  <div class="back-btn" onclick="switchTab('savingTab')">← กลับ</div>
+  <h2>ประวัติการคำนวณดอกเบี้ย</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>จำนวนเงิน</th>
+        <th>ธนาคาร</th>
+        <th>ดอกเบี้ย</th>
+        <th>ระยะเวลา</th>
+        <th>วันที่</th>
+      </tr>
+    </thead>
+    <tbody id="historyTable">
+      <tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const savingGoalURL = "https://sheetdb.io/api/v1/2ki12whohfir8";
+  const savingFixedURL = "https://sheetdb.io/api/v1/zei6m6u4uqbgr";
+  const interestSheetURL = "https://sheetdb.io/api/v1/a3v9vau6lv6y5";
+  const currentUser = localStorage.getItem("username");
+  const tbody = document.getElementById("historyBody");
+  const chartContainer = document.getElementById("chartContainer");
+  const goalChartContainer = document.getElementById("goalChartContainer");
+  const refreshBtn = document.getElementById("refreshBtn");
+  let chartInstance = null;
+  let goalChartInstance = null;
+
+  // ฟังก์ชันช่วยคำนวณ step size สำหรับแกน y (ให้เว้นช่วงเหมาะสม)
+  function calculateStepSize(maxValue) {
+    if (maxValue <= 10) return 1;
+    if (maxValue <= 100) return 10;
+    if (maxValue <= 1000) return 50;
+    if (maxValue <= 5000) return 100;
+    if (maxValue <= 10000) return 500;
+    if (maxValue <= 50000) return 2000;
+    return 5000;
+  }
+
+  async function loadSavingData() {
+    tbody.innerHTML = `<tr><td colspan="7" id="noData">กำลังโหลดข้อมูล...</td></tr>`;
+    chartContainer.style.display = 'none';
+    goalChartContainer.style.display = 'none';
+
+    try {
+      const resGoal = await fetch(`${savingGoalURL}?UserID=${currentUser}`);
+      const dataGoal = await resGoal.json();
+
+      const resFixed = await fetch(`${savingFixedURL}?UserID=${currentUser}`);
+      const dataFixed = await resFixed.json();
+
+      const allData = [...dataGoal, ...dataFixed];
+
+      if (!allData.length) {
+        tbody.innerHTML = `<tr><td colspan="7" id="noData">ไม่พบข้อมูลการออม</td></tr>`;
+        return;
+      }
+
+      const summary = {};
+      allData.forEach(item => {
+        const key = item.ประเภท + '|' + item.เป้าหมาย;
+        if (!summary[key]) {
+          summary[key] = {
+            ประเภท: item.ประเภท,
+            เป้าหมาย: item.เป้าหมาย,
+            ยอดรวม: 0,
+            จำนวนทั้งหมด: Number(item['จำนวนเงินที่ต้องการเก็บทั้งหมด']) || Number(item['จำนวนเงินที่ต้องการ']) || Number(item['จำนวนเงินเก็บที่ต้องการ']) || 0,
+            ยอดต่อวัน: Number(item['ยอดที่ควรเก็บต่อวัน']) || 0,
+            ระยะเวลา: item['ระยะเวลาที่ต้องการเก็บ'] || item['ระยะเวลาที่ต้องการ'] || '-',
+            ล่าสุด: item.Date || '-'
+          };
+        }
+        const amount = Number(item['จำนวนเงินเก็บที่ต้องการ']) || Number(item['จำนวนเงินที่ต้องการออมวันนี้']) || 0;
+        summary[key].ยอดรวม += amount;
+
+        if (item.Date && item.Date > summary[key].ล่าสุด) {
+          summary[key].ล่าสุด = item.Date;
+        }
+      });
+
+      tbody.innerHTML = "";
+      Object.values(summary).forEach(row => {
+        const isGoalBased = row.ประเภท.includes("ออมแบบมีเป้าหมาย");
+        const isFixed = row.ประเภท.includes("ออมประจำ");
+
+        const ยอดรวม = isGoalBased ? "-" : (row.ยอดรวม ? row.ยอดรวม.toLocaleString() : "-");
+        const จำนวนทั้งหมด = isFixed ? "-" : (row.จำนวนทั้งหมด ? row.จำนวนทั้งหมด.toLocaleString() : "-");
+        const ยอดต่อวัน = isFixed ? "-" : (row.ยอดต่อวัน ? row.ยอดต่อวัน.toLocaleString() : "-");
+        const ล่าสุด = row.ล่าสุด || "-";
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${row.ประเภท}</td>
+            <td>${row.เป้าหมาย}</td>
+            <td>${ยอดรวม}</td>
+            <td>${จำนวนทั้งหมด}</td>
+            <td>${ยอดต่อวัน}</td>
+            <td>${row.ระยะเวลา}</td>
+            <td>${ล่าสุด}</td>
+          </tr>
+        `;
+      });
+
+      showChart(Object.values(summary));
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="7" id="noData">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+      console.error(error);
+    }
+  }
+
+  function showChart(data) {
+    chartContainer.style.display = 'block';
+    goalChartContainer.style.display = 'block';
+
+    const fixed = data.filter(d => d.ประเภท.includes("ออมประจำ"));
+    const goal = data.filter(d => d.ประเภท.includes("ออมแบบมีเป้าหมาย"));
+
+    // กราฟแบบออมประจำ
+    const fixedLabels = fixed.map(d => d.เป้าหมาย);
+    const fixedAmounts = fixed.map(d => d.ยอดรวม);
+    const maxFixed = Math.max(...fixedAmounts, 0);
+    const fixedStep = calculateStepSize(maxFixed);
+
+    if (chartInstance) chartInstance.destroy();
+    const ctx = document.getElementById('summaryChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: fixedLabels,
+        datasets: [{
+          label: 'ยอดเงินรวม (บาท)',
+          data: fixedAmounts,
+          backgroundColor: '#3f51b5',
+          borderRadius: 6,
+          barPercentage: 0.6,
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'เป้าหมาย',
+              font: { size: 14, weight: 'bold' }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'ยอดเงินรวม (บาท)',
+              font: { size: 14, weight: 'bold' }
+            },
+            ticks: {
+              stepSize: fixedStep
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.parsed.y.toLocaleString() + " บาท"
+            }
+          }
+        }
+      }
+    });
+
+    // กราฟแบบออมมีเป้าหมาย (ใช้ยอดที่ควรเก็บต่อวัน)
+    // กราฟแบบออมมีเป้าหมาย (ใช้ "จำนวนเงินที่ต้องการเก็บทั้งหมด")
+const goalLabels = goal.map(d => d.เป้าหมาย);
+const goalAmounts = goal.map(d => d.จำนวนทั้งหมด);
+const maxGoal = Math.max(...goalAmounts, 0);
+const goalStep = calculateStepSize(maxGoal);
+
+if (goalChartInstance) goalChartInstance.destroy();
+const ctx2 = document.getElementById('goalChart').getContext('2d');
+goalChartInstance = new Chart(ctx2, {
+  type: 'bar',
+  data: {
+    labels: goalLabels,
+    datasets: [{
+      label: 'จำนวนเงินที่ต้องการเก็บทั้งหมด (บาท)',
+      data: goalAmounts,
+      backgroundColor: '#64b5f6',
+      borderRadius: 6,
+      barPercentage: 0.6,
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'เป้าหมาย',
+          font: { size: 14, weight: 'bold' }
+        }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'จำนวนเงินที่ต้องการเก็บทั้งหมด (บาท)',
+          font: { size: 14, weight: 'bold' }
+        },
+        ticks: {
+          stepSize: goalStep
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.parsed.y.toLocaleString() + " บาท"
+        }
+      }
+    }
+  }
+});
+
+  }
+
+  async function loadInterestHistory() {
+    const table = document.getElementById("historyTable");
+    table.innerHTML = `<tr><td colspan="5">กำลังโหลดข้อมูล...</td></tr>`;
+    try {
+      const res = await fetch(interestSheetURL);
+      const data = await res.json();
+      const filtered = data.filter(row => row.UserID === currentUser);
+      if (!filtered.length) {
+        table.innerHTML = `<tr><td colspan="5">ไม่พบข้อมูล</td></tr>`;
+        return;
+      }
+      table.innerHTML = "";
+      filtered.reverse().forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row["จำนวนเงินที่ต้องการฝาก"] || "-"}</td>
+          <td>${row["ธนาคาร"] || "-"}</td>
+          <td>${row["ดอกเบี้ย"] || "-"}</td>
+          <td>${row["ระยะเวลาในการเก็บ"] || "-"}</td>
+          <td>${row["Date"] || "-"}</td>
+        `;
+        table.appendChild(tr);
+      });
+    } catch (err) {
+      console.error(err);
+      table.innerHTML = `<tr><td colspan="5">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+    }
+  }
+
+  function switchTab(id, event) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    if(event) event.currentTarget.classList.add('active');
+    document.getElementById(id).classList.add('active');
+
+    if(id === 'savingTab') {
+      loadSavingData();
+    } else if(id === 'interestTab') {
+      loadInterestHistory();
+    }
+  }
+
+  refreshBtn.addEventListener('click', () => {
+    loadSavingData();
+  });
+
+  loadSavingData();
+</script>
+</body>
+</html>

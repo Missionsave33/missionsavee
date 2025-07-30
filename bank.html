@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>ระบบคำนวณดอกเบี้ยเงินฝาก</title>
+  <style>
+    body {
+      font-family: "Prompt", sans-serif;
+      margin: 0;
+      padding: 15px;
+      background-color: #e3f2fd;
+      color: #000;
+    }
+
+    h2 {
+      color: #1565c0;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+
+    select, input {
+      width: 95%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 2px solid #90caf9;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 20px;
+      background-color: #64b5f6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #42a5f5;
+    }
+
+    .result {
+      margin-top: 30px;
+      background-color: #bbdefb;
+      padding: 20px;
+      border-radius: 6px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>คำนวณดอกเบี้ยเงินฝาก</h2>
+
+    <input type="text" id="goal" placeholder="เป้าหมาย เช่น การศึกษา, ซื้อบ้าน" />
+    <input type="number" id="amount" placeholder="จำนวนเงินที่ต้องการฝาก (บาท)" />
+
+    <select id="bank">
+      <option value="">-- เลือกธนาคาร --</option>
+      <option value="ไทยพาณิชย์">ไทยพาณิชย์</option>
+      <option value="กสิกรไทย">กสิกรไทย</option>
+      <option value="กรุงเทพ">กรุงเทพ</option>
+      <option value="ทหารไทยธนชาต">ทหารไทยธนชาต</option>
+      <option value="กรุงไทย">กรุงไทย</option>
+      <option value="แลนด์ แอนด์ เฮ้าส์">แลนด์ แอนด์ เฮ้าส์</option>
+      <option value="กรุงศรีอยุธยา">กรุงศรีอยุธยา</option>
+      <option value="ยูโอบี">ยูโอบี</option>
+      <option value="ซีไอเอ็มบี ไทย">ซีไอเอ็มบี ไทย</option>
+      <option value="เกียรตินาคินภัทร">เกียรตินาคินภัทร</option>
+      <option value="ไอซีบีซี (ไทย)">ไอซีบีซี (ไทย)</option>
+      <option value="ทิสโก้">ทิสโก้</option>
+      <option value="เมกะ สากลพาณิชย์">เมกะ สากลพาณิชย์</option>
+      <option value="ไทยเครดิต จำกัด (มหาชน)">ไทยเครดิต จำกัด (มหาชน)</option>
+      <option value="แห่งประเทศจีน (ไทย)">แห่งประเทศจีน (ไทย)</option>
+    </select>
+
+    <select id="duration">
+      <option value="">-- เลือกระยะเวลา --</option>
+      <option value="3">3 เดือน</option>
+      <option value="6">6 เดือน</option>
+      <option value="12">12 เดือน</option>
+      <option value="24">24 เดือน</option>
+    </select>
+
+    <div class="button-group">
+      <button onclick="calculate()">คำนวณ</button>
+      <button onclick="save()">บันทึก</button>
+      <button onclick="goToHistory()">ดูประวัติ</button>
+    </div>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    const sheetdbUrl = "https://sheetdb.io/api/v1/a3v9vau6lv6y5";
+
+    const interestRates = {
+      "ไทยพาณิชย์": { "3": 0.85, "6": 0.90, "12": 1.20, "24": 1.50 },
+      "กสิกรไทย": { "3": 0.85, "6": 0.90, "12": 1.20, "24": 1.50 },
+      "กรุงเทพ": { "3": 0.85, "6": 0.90, "12": 1.25, "24": 1.55 },
+      "ทหารไทยธนชาต": { "3": 0.95, "6": 1.10, "12": 1.30, "24": 1.40 },
+      "กรุงไทย": { "3": 0.85, "6": 0.90, "12": 1.20, "24": 1.50 },
+      "แลนด์ แอนด์ เฮ้าส์": { "3": 1.15, "6": 1.25, "12": 1.50, "24": 1.60 },
+      "กรุงศรีอยุธยา": { "3": 0.85, "6": 0.90, "12": 1.30, "24": 1.50 },
+      "ยูโอบี": { "3": 0.85, "6": 0.90, "12": 1.20, "24": 1.40 },
+      "ซีไอเอ็มบี ไทย": { "3": 0.80, "6": 1.00, "12": 1.20, "24": 1.40 },
+      "เกียรตินาคินภัทร": { "3": 1.20, "6": 1.50, "12": 1.55, "24": 1.40 },
+      "ไอซีบีซี (ไทย)": { "3": 1.15, "6": 1.35, "12": 1.35, "24": 1.30 },
+      "ทิสโก้": { "3": 1.45, "6": 1.50, "12": 1.55, "24": 1.55 },
+      "เมกะ สากลพาณิชย์": { "3": 1.10, "6": 1.25, "12": 1.35, "24": 1.30 },
+      "ไทยเครดิต จำกัด (มหาชน)": { "3": 0.95, "6": 1.45, "12": 1.60, "24": 1.60 },
+      "แห่งประเทศจีน (ไทย)": { "3": 0.625, "6": 1.00, "12": 1.30, "24": 1.35 }
+    };
+
+    let currentUser = localStorage.getItem("username");
+    if (!currentUser) {
+      alert("กรุณาเข้าสู่ระบบก่อนใช้งานหน้านี้");
+      window.location.href = "checkin.html";
+    }
+
+    let calculatedData = null;
+
+    function calculate() {
+      const goal = document.getElementById('goal').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+      const bank = document.getElementById('bank').value;
+      const duration = document.getElementById('duration').value;
+      const result = document.getElementById('result');
+
+      if (!bank || !duration || isNaN(amount) || amount <= 0) {
+        result.innerHTML = "⚠️ กรุณากรอกข้อมูลให้ครบถ้วน";
+        return;
+      }
+
+      const interest = interestRates[bank]?.[duration];
+      if (!interest) {
+        result.innerHTML = "❌ ไม่มีข้อมูลดอกเบี้ยของธนาคารนี้";
+        return;
+      }
+
+      const yearFraction = duration / 12;
+      const interestAmount = amount * (interest / 100) * yearFraction;
+      const total = amount + interestAmount;
+
+      calculatedData = {
+        userID: currentUser,
+        goal,
+        amount,
+        bank,
+        duration,
+        interest,
+        interestAmount,
+        total
+      };
+
+      result.innerHTML = `
+        ✅ คำนวณแล้ว<br>
+        ดอกเบี้ยรวม: ${interestAmount.toFixed(2)} บาท<br>
+        ยอดรวม: ${total.toFixed(2)} บาท
+      `;
+    }
+
+    async function save() {
+      const result = document.getElementById('result');
+      if (!calculatedData) {
+        result.innerHTML = "⚠️ กรุณากดปุ่มคำนวณก่อนบันทึก";
+        return;
+      }
+
+      const date = new Date().toLocaleDateString('th-TH');
+
+      const postData = {
+        data: {
+          UserID: calculatedData.userID,
+          เป้าหมาย: calculatedData.goal || "-",
+          จำนวนเงินที่ต้องการฝาก: calculatedData.amount.toString(),
+          ธนาคาร: calculatedData.bank,
+          ดอกเบี้ย: calculatedData.interest.toString(),
+          ระยะเวลาในการเก็บ: calculatedData.duration + " เดือน",
+          Date: date
+        }
+      };
+
+      await fetch(sheetdbUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postData)
+      });
+
+      result.innerHTML += "<br>✅ บันทึกข้อมูลเรียบร้อยแล้ว";
+    }
+
+    function goToHistory() {
+      window.location.href = `history.html?userID=${encodeURIComponent(currentUser)}`;
+    }
+  </script>
+</body>
+</html>

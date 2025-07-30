@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>เข้าสู่ระบบ</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Prompt", sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background-color: #c7edff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #b1e6ff;
+      padding: 25px 20px;
+      border-radius: 22px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.12);
+      text-align: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #a1d8f9;
+      border-radius: 14px;
+      font-size: 15px;
+      background-color: #d5f3ff;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #64b5f6;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #42a5f5;
+    }
+
+    #message {
+      margin-top: 12px;
+      font-size: 15px;
+      color: red;
+      min-height: 20px;
+    }
+
+    a {
+      color: #1565c0;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>เข้าสู่ระบบ</h2>
+    <input type="text" id="userid" placeholder="ไอดีผู้ใช้" autocomplete="off" />
+    <input type="password" id="password" placeholder="รหัสผ่าน" autocomplete="current-password" />
+    <button onclick="login()">เข้าสู่ระบบ</button>
+    <div id="message" role="alert"></div>
+    <p>ยังไม่มีบัญชี? <a href="register.html">ลงทะเบียน</a></p>
+  </div>
+
+  <script>
+    async function login() {
+      const userid = document.getElementById("userid").value.trim();
+      const password = document.getElementById("password").value;
+      const message = document.getElementById("message");
+
+      if (!userid || !password) {
+        message.innerText = "กรุณากรอกข้อมูลให้ครบถ้วน";
+        return;
+      }
+
+      const url = `https://sheetdb.io/api/v1/brfev2453q2v4/search?UserID=${encodeURIComponent(userid)}`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.length === 0) {
+          message.innerText = "ไม่พบผู้ใช้นี้";
+          return;
+        }
+
+        if (data[0].Password === password) {
+          message.style.color = "green";
+          message.innerText = "✅ เข้าสู่ระบบสำเร็จ!";
+          setTimeout(() => {
+            window.location.href = "calculator.html";
+          }, 1500);
+        } else {
+          message.innerText = "รหัสผ่านไม่ถูกต้อง";
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        message.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อ";
+      }
+    }
+  </script>
+</body>
+</html>

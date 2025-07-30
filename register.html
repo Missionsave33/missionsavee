@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ลงทะเบียน</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Prompt", sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background-color: #c7edff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #b1e6ff;
+      padding: 25px 20px;
+      border-radius: 22px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.12);
+      text-align: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #a1d8f9;
+      border-radius: 14px;
+      font-size: 15px;
+      background-color: #d5f3ff;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #64b5f6;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #42a5f5;
+    }
+
+    #message {
+      margin-top: 12px;
+      font-size: 15px;
+      color: red;
+      min-height: 20px;
+    }
+
+    a {
+      color: #1565c0;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- กล่องลงทะเบียน -->
+  <div class="container">
+    <h2>ลงทะเบียน</h2>
+    <input type="text" id="username" placeholder="ชื่อผู้ใช้" autocomplete="off" />
+    <input type="text" id="userid" placeholder="ไอดีผู้ใช้" autocomplete="off" />
+    <input type="text" id="contact" placeholder="อีเมล หรือ เบอร์โทร" autocomplete="off" />
+    <input type="password" id="password" placeholder="รหัสผ่าน (8 ตัว)" autocomplete="new-password" />
+    <input type="password" id="confirm" placeholder="ยืนยันรหัสผ่าน" autocomplete="new-password" />
+    <button onclick="register()">ลงทะเบียน</button>
+    <div id="message" role="alert"></div>
+    <p>มีบัญชีอยู่แล้ว? <a href="index.html">เข้าสู่ระบบ</a></p>
+  </div>
+
+  <script>
+    async function register() {
+      const username = document.getElementById("username").value.trim();
+      const userid = document.getElementById("userid").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+      const password = document.getElementById("password").value;
+      const confirm = document.getElementById("confirm").value;
+      const message = document.getElementById("message");
+
+      if (!username || !userid || !contact || !password || !confirm) {
+        message.innerText = "กรุณากรอกข้อมูลให้ครบถ้วน";
+        return;
+      }
+
+      if (password.length < 8) {
+        message.innerText = "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร";
+        return;
+      }
+
+      if (password !== confirm) {
+        message.innerText = "รหัสผ่านไม่ตรงกัน";
+        return;
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const data = {
+        data: [{
+          UserID: userid,
+          Username: username,
+          EmailOrPhone: contact,
+          Password: password,
+          Date: today
+        }]
+      };
+
+      const sheetdbUrl = "https://sheetdb.io/api/v1/brfev2453q2v4";
+
+      try {
+        
+        const response = await fetch(sheetdbUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+          message.style.color = "green";
+          message.innerText = "✅ ลงทะเบียนสำเร็จ กำลังเข้าสู่ระบบ...";
+          setTimeout(() => {
+            window.location.href = "calculator.html";
+          }, 1500);
+        } else {
+          message.innerText = "❌ ไม่สามารถลงทะเบียนได้";
+        }
+      } catch (error) {
+        console.error("Register error:", error);
+        message.innerText = "⚠️ เกิดข้อผิดพลาดในการเชื่อมต่อ";
+      }
+    }
+  </script>
+</body>
+</html>

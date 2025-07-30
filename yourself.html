@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>หน้าออมเงิน</title>
+  <style>
+    body {
+      font-family: "Kanit", sans-serif;
+      background-color: #f0f4ff;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      font-size: 1rem;
+    }
+
+    h1, h2 {
+      color: #4a6cf7;
+      font-size: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+    }
+
+    input, select, button {
+      padding: 8px;
+      font-size: 1rem;
+      margin-top: 5px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      background-color: #4a6cf7;
+      border: none;
+      color: white;
+      cursor: pointer;
+      margin-top: 15px;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      background-color: #3a54c7;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #fixedSummary, #goalResult {
+      margin-top: 15px;
+      white-space: pre-line;
+      font-weight: 600;
+      color: #222;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: #4a6cf7;
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
+      text-decoration: underline;
+      margin-top: 10px;
+    }
+
+    .btn-link:hover {
+      color: #2a3ca7;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 15px;
+        font-size: 0.95rem;
+      }
+
+      h1, h2 {
+        font-size: 1.25rem;
+      }
+
+      input, select, button {
+        font-size: 0.95rem;
+      }
+
+      .btn-link {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ระบบออมเงิน</h1>
+
+  <label for="savingType">เลือกประเภทการออม</label>
+  <select id="savingType">
+    <option value="">-- กรุณาเลือก --</option>
+    <option value="fixed">ออมแบบประจำ</option>
+    <option value="goal">ออมแบบมีเป้าหมาย</option>
+  </select>
+
+  <!-- ออมแบบประจำ -->
+  <div id="fixedSection" class="hidden">
+    <h2>ออมแบบประจำ</h2>
+    <label for="fixedName">ชื่อเป้าหมาย</label>
+    <input type="text" id="fixedName" placeholder="เช่น เงินซื้อของขวัญ" />
+
+    <label for="fixedDailyAmount">จำนวนเงินที่ต้องการออมวันนี้ (บาท)</label>
+    <input type="number" id="fixedDailyAmount" min="0" step="0.01" placeholder="0.00" />
+
+    <button onclick="submitFixed()">บันทึกข้อมูล</button>
+
+    <pre id="fixedSummary"></pre>
+    <button id="fixedHistoryBtn" class="btn-link" style="display:none;" onclick="goToHistory()">ดูประวัติการออมแบบประจำ</button>
+  </div>
+
+  <!-- ออมมีเป้าหมาย -->
+  <div id="goalSection" class="hidden">
+    <h2>ออมมีเป้าหมาย</h2>
+    <label for="goalName">ชื่อเป้าหมาย</label>
+    <input type="text" id="goalName" placeholder="เช่น เงินซื้อรถ" />
+
+    <label for="goalTotal">จำนวนเงินที่ต้องการเก็บทั้งหมด (บาท)</label>
+    <input type="number" id="goalTotal" min="0" step="0.01" placeholder="0.00" />
+
+    <label for="goalDays">ระยะเวลาที่ต้องการเก็บ (วัน)</label>
+    <input type="number" id="goalDays" min="1" placeholder="เช่น 30" />
+
+    <button onclick="calculateGoal()">คำนวณยอดที่ควรเก็บต่อวัน</button>
+
+    <pre id="goalResult"></pre>
+
+    <button id="goalSaveBtn" class="hidden" onclick="submitGoal()">บันทึกข้อมูล</button>
+    <button id="goalHistoryBtn" class="btn-link" style="display:none;" onclick="goToHistory()">ดูประวัติออมมีเป้าหมาย</button>
+  </div>
+
+  <script>
+    const savingType = document.getElementById("savingType");
+    const fixedSection = document.getElementById("fixedSection");
+    const goalSection = document.getElementById("goalSection");
+    const fixedSummary = document.getElementById("fixedSummary");
+    const goalResult = document.getElementById("goalResult");
+    const goalSaveBtn = document.getElementById("goalSaveBtn");
+    const fixedHistoryBtn = document.getElementById("fixedHistoryBtn");
+    const goalHistoryBtn = document.getElementById("goalHistoryBtn");
+
+    // API URLs (แก้เป็น URL ใหม่ล่าสุดของอ้วน)
+    const fixedSheetURL = "https://sheetdb.io/api/v1/zei6m6u4uqbgr";
+    const goalSheetURL = "https://sheetdb.io/api/v1/2ki12whohfir8";
+
+    // ดึง username จาก localStorage (ต้องมีการล็อกอินเก็บไว้ก่อน)
+    let currentUser = localStorage.getItem("username");
+    if (!currentUser) {
+      alert("กรุณาเข้าสู่ระบบก่อนใช้งานหน้านี้");
+      window.location.href = "checkin.html";
+    }
+
+    savingType.addEventListener("change", () => {
+      fixedSection.classList.add("hidden");
+      goalSection.classList.add("hidden");
+      fixedSummary.innerText = "";
+      goalResult.innerText = "";
+      goalSaveBtn.classList.add("hidden");
+      fixedHistoryBtn.style.display = "none";
+      goalHistoryBtn.style.display = "none";
+
+      if (savingType.value === "fixed") {
+        fixedSection.classList.remove("hidden");
+        loadFixedSummary();
+      } else if (savingType.value === "goal") {
+        goalSection.classList.remove("hidden");
+      }
+    });
+
+    // บันทึกข้อมูล ออมแบบประจำ
+    function submitFixed() {
+      const name = document.getElementById("fixedName").value.trim();
+      const daily = parseFloat(document.getElementById("fixedDailyAmount").value);
+      if (!name) return alert("กรุณากรอกชื่อเป้าหมาย");
+      if (!daily || daily <= 0) return alert("กรุณากรอกจำนวนเงินที่ออมวันนี้ให้ถูกต้อง");
+
+      const payload = {
+        UserID: currentUser,
+        ประเภท: "ออมประจำ",
+        เป้าหมาย: name,
+        'จำนวนเงินที่ต้องการออมวันนี้': daily,
+        Date: new Date().toISOString().split("T")[0]
+      };
+
+      fetch(fixedSheetURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: [payload] })
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("บันทึกข้อมูลเรียบร้อย ✅");
+        document.getElementById("fixedDailyAmount").value = "";
+        loadFixedSummary();
+        fixedHistoryBtn.style.display = "inline-block";
+      })
+      .catch(() => alert("เกิดข้อผิดพลาดในการบันทึก ❌"));
+    }
+
+    // โหลดสรุปยอด ออมแบบประจำ
+    function loadFixedSummary() {
+      fixedSummary.innerText = "กำลังโหลด...";
+      fetch(`${fixedSheetURL}?UserID=${currentUser}&ประเภท=ออมประจำ`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length === 0) {
+            fixedSummary.innerText = "ยังไม่มีข้อมูลการออม";
+            fixedHistoryBtn.style.display = "none";
+            return;
+          }
+
+          const summaryByGoal = {};
+          data.forEach(row => {
+            const goal = row['เป้าหมาย'];
+            const amount = parseFloat(row['จำนวนเงินที่ต้องการออมวันนี้']) || 0;
+            if (!summaryByGoal[goal]) summaryByGoal[goal] = 0;
+            summaryByGoal[goal] += amount;
+          });
+
+          let summaryText = '';
+          for (const goal in summaryByGoal) {
+            summaryText += `เป้าหมาย "${goal}" ออมแล้วทั้งหมด ${summaryByGoal[goal].toLocaleString()} บาท\n`;
+          }
+
+          fixedSummary.innerText = summaryText.trim();
+          fixedHistoryBtn.style.display = "inline-block";
+        })
+        .catch(() => {
+          fixedSummary.innerText = "โหลดข้อมูลผิดพลาด ❌";
+        });
+    }
+
+    let goalCalculated = null;
+
+    // คำนวณยอดที่ควรเก็บต่อวัน สำหรับ ออมมีเป้าหมาย
+    function calculateGoal() {
+      const name = document.getElementById("goalName").value.trim();
+      const total = parseFloat(document.getElementById("goalTotal").value);
+      const days = parseInt(document.getElementById("goalDays").value);
+
+      if (!name) return alert("กรุณากรอกชื่อเป้าหมาย");
+      if (!total || total <= 0) return alert("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+      if (!days || days <= 0) return alert("กรุณากรอกจำนวนวันที่ถูกต้อง");
+
+      const daily = Math.ceil(total / days);
+      goalResult.innerText = `คุณควรเก็บวันละ ${daily.toLocaleString()} บาท`;
+      goalSaveBtn.classList.remove("hidden");
+      goalHistoryBtn.style.display = "inline-block";
+
+      goalCalculated = {
+        name,
+        target: total,
+        duration: days,
+        daily
+      };
+    }
+
+    // บันทึกข้อมูล ออมมีเป้าหมาย
+    function submitGoal() {
+      if (!goalCalculated) {
+        alert("กรุณากดปุ่มคำนวณก่อนบันทึกข้อมูล");
+        return;
+      }
+
+      const { name, target, duration, daily } = goalCalculated;
+
+      const payload = {
+        UserID: currentUser,
+        ประเภท: "ออมแบบมีเป้าหมาย",
+        เป้าหมาย: name,
+        'จำนวนเงินที่ต้องการเก็บทั้งหมด': target,
+        'ยอดที่ควรเก็บต่อวัน': daily,
+        'ระยะเวลาที่ต้องการเก็บ': duration,
+        'ยอดเงินรวม': 0,
+        Date: new Date().toISOString().split("T")[0]
+      };
+
+      fetch(goalSheetURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: [payload] })
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("บันทึกข้อมูลเรียบร้อย ✅");
+        document.getElementById("goalName").value = "";
+        document.getElementById("goalTotal").value = "";
+        document.getElementById("goalDays").value = "";
+        goalResult.innerText = "";
+        goalSaveBtn.classList.add("hidden");
+        goalCalculated = null;
+      })
+      .catch(() => alert("เกิดข้อผิดพลาดในการบันทึก ❌"));
+    }
+    
+function formatDateToThai(date) {
+      const yyyy = date.getFullYear() + 543;
+      const mm = ("0" + (date.getMonth() + 1)).slice(-2);
+      const dd = ("0" + date.getDate()).slice(-2);
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    // ไปหน้าประวัติ (history.html)
+    function goToHistory() {
+      window.location.href = "history.html";
+    }
+  </script>
+</body>
+</html>
